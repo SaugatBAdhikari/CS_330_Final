@@ -27,6 +27,9 @@ public:
 	// mouse position callback for mouse interaction with the 3D scene
 	static void Mouse_Position_Callback(GLFWwindow* window, double xMousePos, double yMousePos);
 
+	// mouse scroll callback for dynamically adjusting camera speed
+	static void Mouse_Scroll_Callback(GLFWwindow* window, double xOffset, double yOffset);
+
 private:
 	// pointer to shader manager object
 	ShaderManager* m_pShaderManager;
@@ -34,7 +37,8 @@ private:
 	GLFWwindow* m_pWindow;
 
 	// process keyboard events for interaction with the 3D scene
-	void ProcessKeyboardEvents();
+	// (Milestone Three requirement: keep keyboard input in processInput)
+	void processInput();
 
 public:
 	// create the initial OpenGL display window

@@ -11,6 +11,7 @@
 
 // GLM Math Header inclusions
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/type_ptr.hpp>    
 
@@ -39,6 +40,24 @@ namespace
 	// the following variable is false when orthographic projection
 	// is off and true when it is on
 	bool bOrthographicProjection = false;
+
+	// key edge-detection flags (prevents rapid fire toggles while held)
+	bool gPKeyDown = false;
+	bool gOKeyDown = false;
+
+	// --------------------------------------------------------------------------
+	// Saved "free-look" camera state (used for restoring after top-down view)
+	// --------------------------------------------------------------------------
+	bool gHasSavedFreeLookCamera = false;
+	glm::vec3 gSavedPosition(0.0f);
+	glm::vec3 gSavedFront(0.0f, 0.0f, -1.0f);
+	glm::vec3 gSavedUp(0.0f, 1.0f, 0.0f);
+	glm::vec3 gSavedRight(1.0f, 0.0f, 0.0f);
+	glm::vec3 gSavedWorldUp(0.0f, 1.0f, 0.0f);
+	float gSavedYaw = 0.0f;
+	float gSavedPitch = 0.0f;
+	float gSavedZoom = 45.0f;
+	float gSavedMovementSpeed = 2.5f;
 }
 
 /***********************************************************
@@ -106,6 +125,10 @@ GLFWwindow* ViewManager::CreateDisplayWindow(const char* windowTitle)
 	// this callback is used to receive mouse moving events
 	glfwSetCursorPosCallback(window, &ViewManager::Mouse_Position_Callback);
 
+	// this callback is used to receive mouse scroll wheel events
+	// (Milestone Three: scroll adjusts camera speed dynamically)
+	glfwSetScrollCallback(window, &ViewManager::Mouse_Scroll_Callback);
+
 	// enable blending for supporting tranparent rendering
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -123,6 +146,13 @@ GLFWwindow* ViewManager::CreateDisplayWindow(const char* windowTitle)
  ***********************************************************/
 void ViewManager::Mouse_Position_Callback(GLFWwindow* window, double xMousePos, double yMousePos)
 {
+	// In fixed top-down orthographic mode, ignore mouse-look so the view remains
+	// explicitly looking straight down (Milestone Three rubric requirement).
+	if (bOrthographicProjection)
+	{
+		return;
+	}
+
 	if (gFirstMouse)
 	{
 		gLastX = (float)xMousePos;
@@ -144,17 +174,146 @@ void ViewManager::Mouse_Position_Callback(GLFWwindow* window, double xMousePos, 
 }
 
 /***********************************************************
- *  ProcessKeyboardEvents()
+ *  Mouse_Scroll_Callback()
+ *
+ *  This method is automatically called from GLFW whenever
+ *  the mouse scroll wheel is moved.
+ *
+ *  Milestone Three requirement:
+ *  - Scroll wheel dynamically adjusts camera speed.
+ ***********************************************************/
+void ViewManager::Mouse_Scroll_Callback(GLFWwindow* window, double xOffset, double yOffset)
+{
+	(void)window;
+	(void)xOffset;
+
+	if (g_pCamera)
+	{
+		// ----------------------------------------------------------------------
+		// Milestone Three requirement:
+		// - Scroll UP increases camera MovementSpeed
+		// - Scroll DOWN decreases camera MovementSpeed
+		// - Clamp to keep the camera controllable
+		//
+		// NOTE: This remains enabled even in Orthographic (movement-locked) mode
+		// so the user can set a preferred speed before returning to free-look.
+		// ----------------------------------------------------------------------
+		const float kMinSpeed = 1.0f;
+		const float kMaxSpeed = 20.0f;
+		const float kStepPerNotch = 1.0f;
+
+		float newSpeed = g_pCamera->MovementSpeed + (float)yOffset * kStepPerNotch;
+		if (newSpeed < kMinSpeed) newSpeed = kMinSpeed;
+		if (newSpeed > kMaxSpeed) newSpeed = kMaxSpeed;
+		g_pCamera->MovementSpeed = newSpeed;
+	}
+}
+
+/***********************************************************
+ *  processInput()
  *
  *  This method is called to process any keyboard events
  *  that may be waiting in the event queue.
  ***********************************************************/
-void ViewManager::ProcessKeyboardEvents()
+void ViewManager::processInput()
 {
 	// close the window if the escape key has been pressed
 	if (glfwGetKey(m_pWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(m_pWindow, true);
+	}
+
+	// --------------------------------------------------------------------------
+	// Projection toggling (Milestone Three)
+	// P: perspective projection (45° FOV)
+	// O: orthographic projection
+	// --------------------------------------------------------------------------
+	if (glfwGetKey(m_pWindow, GLFW_KEY_P) == GLFW_PRESS && !gPKeyDown)
+	{
+		// If we were in orthographic top-down mode, restore the previous free-look
+		// camera pose so the user returns exactly to where they were.
+		if (bOrthographicProjection && g_pCamera && gHasSavedFreeLookCamera)
+		{
+			g_pCamera->Position = gSavedPosition;
+			g_pCamera->Front = gSavedFront;
+			g_pCamera->Up = gSavedUp;
+			g_pCamera->Right = gSavedRight;
+			g_pCamera->WorldUp = gSavedWorldUp;
+			g_pCamera->Yaw = gSavedYaw;
+			g_pCamera->Pitch = gSavedPitch;
+			g_pCamera->Zoom = gSavedZoom;
+			g_pCamera->MovementSpeed = gSavedMovementSpeed;
+
+			// Prevent a large camera "jump" on the next mouse move after teleporting.
+			gFirstMouse = true;
+		}
+
+		bOrthographicProjection = false;
+		if (g_pCamera)
+		{
+			g_pCamera->Zoom = 45.0f; // required perspective FOV
+		}
+		gPKeyDown = true;
+	}
+	if (glfwGetKey(m_pWindow, GLFW_KEY_P) == GLFW_RELEASE)
+	{
+		gPKeyDown = false;
+	}
+
+	if (glfwGetKey(m_pWindow, GLFW_KEY_O) == GLFW_PRESS && !gOKeyDown)
+	{
+		// Save the current free-look camera state so P can restore it later.
+		if (!bOrthographicProjection && g_pCamera)
+		{
+			gHasSavedFreeLookCamera = true;
+			gSavedPosition = g_pCamera->Position;
+			gSavedFront = g_pCamera->Front;
+			gSavedUp = g_pCamera->Up;
+			gSavedRight = g_pCamera->Right;
+			gSavedWorldUp = g_pCamera->WorldUp;
+			gSavedYaw = g_pCamera->Yaw;
+			gSavedPitch = g_pCamera->Pitch;
+			gSavedZoom = g_pCamera->Zoom;
+			gSavedMovementSpeed = g_pCamera->MovementSpeed;
+		}
+
+		// ----------------------------------------------------------------------
+		// Orthographic top-down camera view (Milestone Three requirement)
+		// - Position directly above scene center: (0, 10, 0)
+		// - Look straight down: Front (0, -1, 0)
+		// - Up vector: (0, 0, -1)
+		// This makes the view unambiguously top-down.
+		// ----------------------------------------------------------------------
+		bOrthographicProjection = true;
+		if (g_pCamera)
+		{
+			g_pCamera->Position = glm::vec3(0.0f, 10.0f, 0.0f);
+			g_pCamera->Front = glm::vec3(0.0f, -1.0f, 0.0f);
+			g_pCamera->WorldUp = glm::vec3(0.0f, 0.0f, -1.0f);
+
+			// Keep the camera basis vectors consistent with the requested Front/Up.
+			g_pCamera->Right = glm::normalize(glm::cross(g_pCamera->Front, g_pCamera->WorldUp));
+			g_pCamera->Up = glm::normalize(glm::cross(g_pCamera->Right, g_pCamera->Front));
+
+			// Prevent a large camera "jump" on the next mouse move after teleporting.
+			gFirstMouse = true;
+		}
+
+		gOKeyDown = true;
+	}
+	if (glfwGetKey(m_pWindow, GLFW_KEY_O) == GLFW_RELEASE)
+	{
+		gOKeyDown = false;
+	}
+
+	// --------------------------------------------------------------------------
+	// Movement lock in Orthographic mode (Milestone Three rubric requirement)
+	// When in top-down orthographic view, keep the camera perfectly centered by
+	// ignoring WASD/QE movement inputs.
+	// --------------------------------------------------------------------------
+	if (bOrthographicProjection)
+	{
+		return;
 	}
 
 	// Move the camera so you can get around objects (e.g., see the handle behind the can).
@@ -207,13 +366,26 @@ void ViewManager::PrepareSceneView()
 
 	// process any keyboard events that may be waiting in the 
 	// event queue
-	ProcessKeyboardEvents();
+	processInput();
 
 	// get the current view matrix from the camera
 	view = g_pCamera->GetViewMatrix();
 
-	// define the current projection matrix
-	projection = glm::perspective(glm::radians(g_pCamera->Zoom), (GLfloat)WINDOW_WIDTH / (GLfloat)WINDOW_HEIGHT, 0.1f, 100.0f);
+	// --------------------------------------------------------------------------
+	// Define the current projection matrix
+	// - Perspective: uses the camera's Zoom as FOV (P sets this to 45°)
+	// - Orthographic: a fixed scale, useful for top-down/front-like viewing
+	// --------------------------------------------------------------------------
+	const float aspect = (GLfloat)WINDOW_WIDTH / (GLfloat)WINDOW_HEIGHT;
+	if (!bOrthographicProjection)
+	{
+		projection = glm::perspective(glm::radians(g_pCamera->Zoom), aspect, 0.1f, 100.0f);
+	}
+	else
+	{
+		const float orthoScale = 10.0f;
+		projection = glm::ortho(-orthoScale * aspect, orthoScale * aspect, -orthoScale, orthoScale, 0.1f, 100.0f);
+	}
 
 	// if the shader manager object is valid
 	if (NULL != m_pShaderManager)

@@ -35,6 +35,7 @@ SceneManager::SceneManager(ShaderManager *pShaderManager)
 {
 	m_pShaderManager = pShaderManager;
 	m_basicMeshes = new ShapeMeshes();
+	m_loadedTextures = 0;
 }
 
 /***********************************************************
@@ -45,6 +46,10 @@ SceneManager::SceneManager(ShaderManager *pShaderManager)
 SceneManager::~SceneManager()
 {
 	m_pShaderManager = NULL;
+
+	// Free the custom ground plane VAO/VBO (Milestone Three).
+	DestroyGroundPlaneMesh();
+
 	delete m_basicMeshes;
 	m_basicMeshes = NULL;
 }
@@ -385,11 +390,17 @@ void SceneManager::PrepareScene()
 	// loaded in memory no matter how many times it is drawn
 	// in the rendered 3D scene
 
-	m_basicMeshes->LoadPlaneMesh();
+	// --------------------------------------------------------------------------
+	// NOTE: We intentionally do NOT use ShapeMeshes' plane for Milestone Three.
+	// The ground/floor is a custom VAO/VBO created in CreateGroundPlaneMesh().
+	// --------------------------------------------------------------------------
 	m_basicMeshes->LoadBoxMesh(); // bracket connector
 	m_basicMeshes->LoadCylinderMesh();
 	m_basicMeshes->LoadConeMesh();
 	m_basicMeshes->LoadTorusMesh();
+
+	// Create the custom ground plane geometry (VAO/VBO).
+	CreateGroundPlaneMesh();
 }
 
 /***********************************************************
@@ -431,15 +442,85 @@ void SceneManager::RenderScene()
 		ZrotationDegrees,
 		positionXYZ);
 
-	// Make the floor green so it's easier to see the scene context
-	SetShaderColor(0.2f, 0.5f, 0.2f, 1.0f);
+	// Floor/table color (Milestone Three): dark blue
+	// NOTE: This only affects the ground plane because it is set immediately
+	// before drawing the ground VAO/VBO.
+	SetShaderColor(0.0f, 0.1f, 0.4f, 1.0f);
 
-	// draw the mesh with transformation values
-	m_basicMeshes->DrawPlaneMesh();
+	// draw the custom ground plane VAO/VBO (Milestone Three)
+	if (m_groundVAO != 0)
+	{
+		glBindVertexArray(m_groundVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	}
 	/****************************************************************/
 
 	// Draw the composite "Watering Can" object.
 	RenderComplexObject();
+}
+
+// --------------------------------------------------------------------------
+// Function: CreateGroundPlaneMesh
+// Purpose : Creates a custom plane VAO/VBO for the scene floor.
+// Vertex format: position (3), normal (3), texCoord (2)
+// Shader locations: 0=position, 1=normal, 2=texCoord
+// --------------------------------------------------------------------------
+void SceneManager::CreateGroundPlaneMesh()
+{
+	// If already created (e.g., hot-reload style), avoid leaking buffers.
+	DestroyGroundPlaneMesh();
+
+	// Unit plane on the XZ axis (Y=0). We scale/translate it in RenderScene().
+	const float groundVertices[] = {
+		// positions            // normals         // UVs
+		-0.5f, 0.0f, -0.5f,     0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+		 0.5f, 0.0f, -0.5f,     0.0f, 1.0f, 0.0f,  1.0f, 0.0f,
+		 0.5f, 0.0f,  0.5f,     0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+
+		 0.5f, 0.0f,  0.5f,     0.0f, 1.0f, 0.0f,  1.0f, 1.0f,
+		-0.5f, 0.0f,  0.5f,     0.0f, 1.0f, 0.0f,  0.0f, 1.0f,
+		-0.5f, 0.0f, -0.5f,     0.0f, 1.0f, 0.0f,  0.0f, 0.0f
+	};
+
+	glGenVertexArrays(1, &m_groundVAO);
+	glGenBuffers(1, &m_groundVBO);
+
+	glBindVertexArray(m_groundVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_groundVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(groundVertices), groundVertices, GL_STATIC_DRAW);
+
+	const GLsizei stride = 8 * (GLsizei)sizeof(float);
+	// position attribute (location = 0)
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	// normal attribute (location = 1)
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+	// texture coordinate attribute (location = 2)
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+// --------------------------------------------------------------------------
+// Function: DestroyGroundPlaneMesh
+// Purpose : Frees the custom ground plane VAO/VBO.
+// --------------------------------------------------------------------------
+void SceneManager::DestroyGroundPlaneMesh()
+{
+	if (m_groundVBO != 0)
+	{
+		glDeleteBuffers(1, &m_groundVBO);
+		m_groundVBO = 0;
+	}
+	if (m_groundVAO != 0)
+	{
+		glDeleteVertexArrays(1, &m_groundVAO);
+		m_groundVAO = 0;
+	}
 }
 
 // --------------------------------------------------------------------------

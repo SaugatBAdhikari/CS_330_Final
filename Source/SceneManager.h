@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <GL/glew.h> // GLuint for custom VAO/VBO (ground plane)
+
 #include "ShaderManager.h"
 #include "ShapeMeshes.h"
 
@@ -50,6 +52,14 @@ private:
 	ShaderManager* m_pShaderManager;
 	// pointer to basic shapes object
 	ShapeMeshes* m_basicMeshes;
+
+	// --------------------------------------------------------------------------
+	// Ground Plane (Milestone Three)
+	// Purpose: A custom 3D plane using its own VAO/VBO (not ShapeMeshes),
+	//          used as the "floor" for the scene.
+	// --------------------------------------------------------------------------
+	GLuint m_groundVAO = 0;
+	GLuint m_groundVBO = 0;
 	// total number of loaded textures
 	int m_loadedTextures;
 	// loaded textures info
@@ -103,6 +113,10 @@ private:
 	// Notes   : Implemented using direct glUniform* calls per assignment prompt.
 	// --------------------------------------------------------------------------
 	void RenderComplexObject();
+
+	// Create / destroy the custom ground plane VAO/VBO.
+	void CreateGroundPlaneMesh();
+	void DestroyGroundPlaneMesh();
 
 public:
 
