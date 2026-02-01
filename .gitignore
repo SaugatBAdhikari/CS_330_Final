@@ -1,0 +1,31 @@
+# Build outputs
+Debug/
+Release/
+x64/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# MSVC intermediate files
+*.obj
+*.pdb
+*.idb
+*.ilk
+*.iobj
+*.ipdb
+*.tlog
+*.log
+*.recipe
+*.lastbuildstate
+
+# Binaries
+*.exe
+*.dll
+
+# Generated build folders created by VS (often hashed)
+7-1_Fina.*/
+
