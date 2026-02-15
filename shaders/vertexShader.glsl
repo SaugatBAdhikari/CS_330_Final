@@ -15,7 +15,9 @@ void main()
 {
    fragmentPosition = vec3(model * vec4(inVertexPosition, 1.0));
    gl_Position = projection * view * model * vec4(inVertexPosition, 1.0f);
-   fragmentVertexNormal = inVertexNormal;
+   // Transform normal by inverse-transpose of model for correct lighting under non-uniform scale.
+   mat3 normalMatrix = mat3(transpose(inverse(model)));
+   fragmentVertexNormal = normalize(normalMatrix * inVertexNormal);
    fragmentTextureCoordinate = inTextureCoordinate;
 }
 

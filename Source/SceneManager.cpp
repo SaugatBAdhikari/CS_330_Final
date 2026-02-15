@@ -50,6 +50,9 @@ SceneManager::~SceneManager()
 	// Free the custom ground plane VAO/VBO (Milestone Three).
 	DestroyGroundPlaneMesh();
 
+	// Free loaded textures (Milestone Four).
+	DestroyGLTextures();
+
 	delete m_basicMeshes;
 	m_basicMeshes = NULL;
 }
@@ -154,7 +157,7 @@ void SceneManager::DestroyGLTextures()
 {
 	for (int i = 0; i < m_loadedTextures; i++)
 	{
-		glGenTextures(1, &m_textureIDs[i].ID);
+		glDeleteTextures(1, &m_textureIDs[i].ID);
 	}
 }
 
@@ -369,6 +372,56 @@ void SceneManager::SetShaderMaterial(
 	}
 }
 
+/***********************************************************
+ *  SetSceneLights()
+ *
+ *  Sets Phong light source uniforms: one key light and one
+ *  fill light so the scene is clearly lit with no complete shadow.
+ ***********************************************************/
+void SceneManager::SetSceneLights()
+{
+	if (m_pShaderManager == NULL) return;
+
+	// Key light: pinkish point light above and in front of the scene.
+	const glm::vec3 keyPos(4.0f, 8.0f, 5.0f);
+	const glm::vec3 keyAmbient(0.35f, 0.18f, 0.28f);   // pink-tinted ambient
+	const glm::vec3 keyDiffuse(0.95f, 0.55f, 0.75f);    // strong pink diffuse
+	const glm::vec3 keySpecular(1.0f, 0.7f, 0.85f);     // pink-white specular
+	m_pShaderManager->setVec3Value("lightSources[0].position", keyPos);
+	m_pShaderManager->setVec3Value("lightSources[0].ambientColor", keyAmbient);
+	m_pShaderManager->setVec3Value("lightSources[0].diffuseColor", keyDiffuse);
+	m_pShaderManager->setVec3Value("lightSources[0].specularColor", keySpecular);
+	m_pShaderManager->setFloatValue("lightSources[0].focalStrength", 32.0f);
+	m_pShaderManager->setFloatValue("lightSources[0].specularIntensity", 1.0f);
+
+	// Fill light: softer pink/mauve from the other side so nothing is in complete shadow.
+	const glm::vec3 fillPos(-5.0f, 5.0f, 4.0f);
+	const glm::vec3 fillAmbient(0.2f, 0.12f, 0.2f);     // mauve ambient
+	const glm::vec3 fillDiffuse(0.5f, 0.3f, 0.45f);    // soft pink diffuse
+	const glm::vec3 fillSpecular(0.6f, 0.4f, 0.55f);   // pink specular
+	m_pShaderManager->setVec3Value("lightSources[1].position", fillPos);
+	m_pShaderManager->setVec3Value("lightSources[1].ambientColor", fillAmbient);
+	m_pShaderManager->setVec3Value("lightSources[1].diffuseColor", fillDiffuse);
+	m_pShaderManager->setVec3Value("lightSources[1].specularColor", fillSpecular);
+	m_pShaderManager->setFloatValue("lightSources[1].focalStrength", 24.0f);
+	m_pShaderManager->setFloatValue("lightSources[1].specularIntensity", 0.6f);
+
+	// Remaining light slots: zero contribution (no extra lights used).
+	const glm::vec3 zero(0.0f, 0.0f, 0.0f);
+	m_pShaderManager->setVec3Value("lightSources[2].position", zero);
+	m_pShaderManager->setVec3Value("lightSources[2].ambientColor", zero);
+	m_pShaderManager->setVec3Value("lightSources[2].diffuseColor", zero);
+	m_pShaderManager->setVec3Value("lightSources[2].specularColor", zero);
+	m_pShaderManager->setFloatValue("lightSources[2].focalStrength", 1.0f);
+	m_pShaderManager->setFloatValue("lightSources[2].specularIntensity", 0.0f);
+	m_pShaderManager->setVec3Value("lightSources[3].position", zero);
+	m_pShaderManager->setVec3Value("lightSources[3].ambientColor", zero);
+	m_pShaderManager->setVec3Value("lightSources[3].diffuseColor", zero);
+	m_pShaderManager->setVec3Value("lightSources[3].specularColor", zero);
+	m_pShaderManager->setFloatValue("lightSources[3].focalStrength", 1.0f);
+	m_pShaderManager->setFloatValue("lightSources[3].specularIntensity", 0.0f);
+}
+
 /**************************************************************/
 /*** STUDENTS CAN MODIFY the code in the methods BELOW for  ***/
 /*** preparing and rendering their own 3D replicated scenes.***/
@@ -376,13 +429,34 @@ void SceneManager::SetShaderMaterial(
 /*** for assistance.                                        ***/
 /**************************************************************/
 
+/***********************************************************
+ *  TryLoadTexture()
+ *
+ *  Milestone Four: Tries multiple paths to load a texture so
+ *  the app works when run from the project dir or from the
+ *  output (Debug/Release) directory.
+ ***********************************************************/
+bool SceneManager::TryLoadTexture(const char* primaryPath,
+	const char* fallbackPath, const std::string& tag)
+{
+	if (CreateGLTexture(primaryPath, tag))
+		return true;
+	if (fallbackPath && fallbackPath[0] != '\0')
+		return CreateGLTexture(fallbackPath, tag);
+	return false;
+}
 
 /***********************************************************
  *  PrepareScene()
  *
  *  This method is used for preparing the 3D scene by loading
- *  the shapes, textures in memory to support the 3D scene 
- *  rendering
+ *  the shapes, textures in memory to support the 3D scene
+ *  rendering.
+ *
+ *  Milestone Four: Loads textures for the ground plane and
+ *  for the composite watering can (metal body/spout/bracket,
+ *  wood handle). Tries paths relative to output dir first,
+ *  then relative to project/solution (Utilities/textures).
  ***********************************************************/
 void SceneManager::PrepareScene()
 {
@@ -401,6 +475,46 @@ void SceneManager::PrepareScene()
 
 	// Create the custom ground plane geometry (VAO/VBO).
 	CreateGroundPlaneMesh();
+
+	// --------------------------------------------------------------------------
+	// Load textures (now included in this project under `textures/`).
+	// The Post-Build step copies `$(ProjectDir)textures` into the output folder
+	// so the relative path `textures/...` works whether you run from the project
+	// directory or from the Debug/Release output directory.
+	// --------------------------------------------------------------------------
+	CreateGLTexture("textures/pavers.jpg", "floor");
+	CreateGLTexture("textures/stainless.jpg", "metal");
+	CreateGLTexture("textures/rusticwood.jpg", "wood");
+
+	// --------------------------------------------------------------------------
+	// Materials for Phong lighting (Milestone: lighting).
+	// Used so the plane reflects light and the watering can parts are lit.
+	// --------------------------------------------------------------------------
+	OBJECT_MATERIAL mat;
+	// Floor (pavers): neutral, moderate specular so the plane reflects light.
+	mat.tag = "floor";
+	mat.ambientStrength = 0.25f;
+	mat.ambientColor = glm::vec3(0.35f, 0.35f, 0.35f);
+	mat.diffuseColor = glm::vec3(0.6f, 0.6f, 0.6f);
+	mat.specularColor = glm::vec3(0.4f, 0.4f, 0.4f);
+	mat.shininess = 32.0f;
+	m_objectMaterials.push_back(mat);
+	// Metal (body/spout/bracket): brighter specular for a metallic look.
+	mat.tag = "metal";
+	mat.ambientStrength = 0.2f;
+	mat.ambientColor = glm::vec3(0.5f, 0.5f, 0.5f);
+	mat.diffuseColor = glm::vec3(0.7f, 0.7f, 0.7f);
+	mat.specularColor = glm::vec3(0.9f, 0.9f, 0.9f);
+	mat.shininess = 64.0f;
+	m_objectMaterials.push_back(mat);
+	// Wood (handle): warmer, lower specular.
+	mat.tag = "wood";
+	mat.ambientStrength = 0.3f;
+	mat.ambientColor = glm::vec3(0.4f, 0.3f, 0.2f);
+	mat.diffuseColor = glm::vec3(0.5f, 0.35f, 0.2f);
+	mat.specularColor = glm::vec3(0.15f, 0.1f, 0.05f);
+	mat.shininess = 16.0f;
+	m_objectMaterials.push_back(mat);
 }
 
 /***********************************************************
@@ -411,6 +525,15 @@ void SceneManager::PrepareScene()
  ***********************************************************/
 void SceneManager::RenderScene()
 {
+	// Milestone Four: Bind all loaded textures to their slots so they are
+	// available when we call SetShaderTexture() for each mesh.
+	BindGLTextures();
+
+	// Lighting: set light sources once per frame (Phong model; nothing in complete shadow).
+	SetSceneLights();
+	if (m_pShaderManager != NULL)
+		m_pShaderManager->setIntValue(g_UseLightingName, true);
+
 	// declare the variables for the transformations
 	glm::vec3 scaleXYZ;
 	float XrotationDegrees = 0.0f;
@@ -442,10 +565,18 @@ void SceneManager::RenderScene()
 		ZrotationDegrees,
 		positionXYZ);
 
-	// Floor/table color (Milestone Three): dark blue
-	// NOTE: This only affects the ground plane because it is set immediately
-	// before drawing the ground VAO/VBO.
-	SetShaderColor(0.0f, 0.1f, 0.4f, 1.0f);
+	// Ground plane: texture + Phong lighting so light reflects off the plane.
+	SetShaderMaterial("floor");
+	if (FindTextureSlot("floor") >= 0)
+	{
+		SetShaderTexture("floor");
+		SetTextureUVScale(4.0f, 4.0f);
+	}
+	else
+	{
+		m_pShaderManager->setIntValue(g_UseTextureName, false);
+		SetShaderColor(0.0f, 0.1f, 0.4f, 1.0f);
+	}
 
 	// draw the custom ground plane VAO/VBO (Milestone Three)
 	if (m_groundVAO != 0)
@@ -456,7 +587,7 @@ void SceneManager::RenderScene()
 	}
 	/****************************************************************/
 
-	// Draw the composite "Watering Can" object.
+	// Draw the composite "Watering Can" object with per-part textures (Milestone Four).
 	RenderComplexObject();
 }
 
@@ -525,72 +656,97 @@ void SceneManager::DestroyGroundPlaneMesh()
 
 // --------------------------------------------------------------------------
 // Function: RenderComplexObject
-// Purpose : Draws a composite 3D Watering Can using a Cylinder, Cone, and Torus.
-//           Demonstrates per-part modeling transforms with independent matrices.
-//
-// Key practices shown:
-// - Reset `model` to identity for each part so transforms don't "stack" across parts
-// - Compose transforms so each piece rotates/scales about its own local origin,
-//   then is moved into place (local -> world)
-// - Use glUniformMatrix4fv + glUniform4f directly as requested
+// Purpose : Draws a composite 3D Watering Can using a Cylinder, Cone, Box,
+//           and Cylinder. Milestone Four: each part uses a different texture
+//           (metal for body/spout/bracket, wood for handle) for a cohesive
+//           but visually distinct object.
 // --------------------------------------------------------------------------
 void SceneManager::RenderComplexObject()
 {
-	// --------------------------------------------------------------------------
-	// Function: RenderComplexObject
-	// Purpose : Final polish for Tall Pitcher.
-	//           - Spout is moved IN and UP to intersect the body (solid connection).
-	//           - Handle/Bracket are tightly coordinated to connect physically.
-	// --------------------------------------------------------------------------
 	if (m_pShaderManager == NULL || m_basicMeshes == NULL) return;
 
 	const GLint modelLoc = glGetUniformLocation(m_pShaderManager->m_programID, "model");
 	const GLint colorLoc = glGetUniformLocation(m_pShaderManager->m_programID, "objectColor");
 	const GLint useTextureLoc = glGetUniformLocation(m_pShaderManager->m_programID, "bUseTexture");
 
-	if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_FALSE);
-
 	glm::mat4 model;
+	const int metalSlot = FindTextureSlot("metal");
+	const int woodSlot = FindTextureSlot("wood");
+	const bool useTextures = (metalSlot >= 0 || woodSlot >= 0);
 
-	// --- PART 1: MAIN BODY (Tall Cylinder) ---
-	// Dimensions: Radius ~0.75, Height 4.5
+	// Default UV scale for watering can parts (no tiling; one-to-one mapping).
+	SetTextureUVScale(1.0f, 1.0f);
+
+	// --- PART 1: MAIN BODY (Tall Cylinder) - metal texture + lighting ---
+	SetShaderMaterial("metal");
 	model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 	model = glm::scale(model, glm::vec3(1.5f, 4.5f, 1.5f));
-
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 1.0f); // White
+	if (useTextures && metalSlot >= 0)
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_TRUE);
+		SetShaderTexture("metal");
+	}
+	else
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_FALSE);
+		glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
+	}
 	m_basicMeshes->DrawCylinderMesh(true, true, true);
 
-	// --- PART 2: SPOUT (Intersecting Cone) ---
-	// FIX: Moved X from 1.6 -> 1.0 (Buries it inside the body)
-	// FIX: Moved Y from 0.5 -> 1.2 (Moves it up towards the middle)
+	// --- PART 2: SPOUT (Cone) - metal texture + lighting ---
+	SetShaderMaterial("metal");
 	model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(1.0f, 1.2f, 0.0f));
-	model = glm::rotate(model, glm::radians(-40.0f), glm::vec3(0.0f, 0.0f, 1.0f)); // Steeper angle
-	model = glm::scale(model, glm::vec3(0.4f, 4.0f, 0.4f)); // Longer spout
-
+	model = glm::rotate(model, glm::radians(-40.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	model = glm::scale(model, glm::vec3(0.4f, 4.0f, 0.4f));
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniform4f(colorLoc, 0.95f, 0.95f, 0.95f, 1.0f);
+	if (useTextures && metalSlot >= 0)
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_TRUE);
+		SetShaderTexture("metal");
+	}
+	else
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_FALSE);
+		glUniform4f(colorLoc, 0.95f, 0.95f, 0.95f, 1.0f);
+	}
 	m_basicMeshes->DrawConeMesh(true);
 
-	// --- PART 3: BRACKET (The Connector) ---
-	// FIX: Positioned to span from inside the body (-0.6) to the handle (-1.4)
+	// --- PART 3: BRACKET (Box connector) - metal texture + lighting ---
+	SetShaderMaterial("metal");
 	model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(-1.0f, 1.8f, 0.0f)); // Near top
-	model = glm::scale(model, glm::vec3(0.9f, 0.3f, 0.5f)); // Wide enough to bridge gap
-
+	model = glm::translate(model, glm::vec3(-1.0f, 1.8f, 0.0f));
+	model = glm::scale(model, glm::vec3(0.9f, 0.3f, 0.5f));
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniform4f(colorLoc, 0.9f, 0.9f, 0.9f, 1.0f); // White/Grey Metal
+	if (useTextures && metalSlot >= 0)
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_TRUE);
+		SetShaderTexture("metal");
+	}
+	else
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_FALSE);
+		glUniform4f(colorLoc, 0.9f, 0.9f, 0.9f, 1.0f);
+	}
 	m_basicMeshes->DrawBoxMesh();
 
-	// --- PART 4: HANDLE (Wooden Dowel) ---
-	// FIX: Aligned perfectly with the end of the bracket
+	// --- PART 4: HANDLE (Cylinder) - wood texture + lighting ---
+	SetShaderMaterial("wood");
 	model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(-1.45f, 0.6f, 0.0f)); // Hanging down
+	model = glm::translate(model, glm::vec3(-1.45f, 0.6f, 0.0f));
 	model = glm::scale(model, glm::vec3(0.3f, 2.6f, 0.3f));
-
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniform4f(colorLoc, 0.6f, 0.4f, 0.2f, 1.0f); // Brown Wood
+	if (useTextures && woodSlot >= 0)
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_TRUE);
+		SetShaderTexture("wood");
+	}
+	else
+	{
+		if (useTextureLoc >= 0) glUniform1i(useTextureLoc, GL_FALSE);
+		glUniform4f(colorLoc, 0.6f, 0.4f, 0.2f, 1.0f);
+	}
 	m_basicMeshes->DrawCylinderMesh(true, true, true);
 }

@@ -66,9 +66,9 @@ int main(int argc, char* argv[])
 		return(EXIT_FAILURE);
 	}
 
-	// load the shader code from the external GLSL files
-	// Prefer local paths (works when double-clicking the .exe in Debug/Release).
-	// Fallback to the original relative paths (works when VS sets the working directory to the project folder).
+	// Load shader code from external GLSL files.
+	// Prefer paths under project folder (works when exe runs from Debug/Release after post-build copy).
+	// Fallback to Utilities when VS working directory is set to solution/project.
 	GLuint programId = g_ShaderManager->LoadShaders(
 		"shaders/vertexShader.glsl",
 		"shaders/fragmentShader.glsl");

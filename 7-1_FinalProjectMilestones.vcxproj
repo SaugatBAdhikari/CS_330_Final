@@ -40,26 +40,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -99,6 +99,8 @@
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)shaders" mkdir "$(OutDir)shaders"
 xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
+if not exist "$(OutDir)textures" mkdir "$(OutDir)textures"
+xcopy /E /I /Y "$(ProjectDir)textures\*" "$(OutDir)textures\"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -120,6 +122,8 @@ xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)shaders" mkdir "$(OutDir)shaders"
 xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
+if not exist "$(OutDir)textures" mkdir "$(OutDir)textures"
+xcopy /E /I /Y "$(ProjectDir)textures\*" "$(OutDir)textures\"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -144,6 +148,8 @@ xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)shaders" mkdir "$(OutDir)shaders"
 xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
+if not exist "$(OutDir)textures" mkdir "$(OutDir)textures"
+xcopy /E /I /Y "$(ProjectDir)textures\*" "$(OutDir)textures\"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -168,6 +174,8 @@ xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)shaders" mkdir "$(OutDir)shaders"
 xcopy /E /I /Y "$(ProjectDir)shaders\*" "$(OutDir)shaders\"
+if not exist "$(OutDir)textures" mkdir "$(OutDir)textures"
+xcopy /E /I /Y "$(ProjectDir)textures\*" "$(OutDir)textures\"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

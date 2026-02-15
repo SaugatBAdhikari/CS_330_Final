@@ -69,6 +69,8 @@ private:
 
 	// load texture images and convert to OpenGL texture data
 	bool CreateGLTexture(const char* filename, std::string tag);
+	// try primary path then fallback (Milestone Four: run from output or project dir)
+	bool TryLoadTexture(const char* primaryPath, const char* fallbackPath, const std::string& tag);
 	// bind loaded OpenGL textures to slots in memory
 	void BindGLTextures();
 	// free the loaded OpenGL textures
@@ -106,6 +108,9 @@ private:
 	// set the object material into the shader
 	void SetShaderMaterial(
 		std::string materialTag);
+
+	// Set Phong light source uniforms (key + fill so nothing is in complete shadow).
+	void SetSceneLights();
 
 	// --------------------------------------------------------------------------
 	// Function: RenderComplexObject
