@@ -9,9 +9,12 @@ This repo contains my CS-330 OpenGL project (Visual Studio).
 
 ## Controls
 
-- **Mouse**: look around (cursor is captured)
-- **W/A/S/D**: move
-- **Q/E**: down/up
+- **W/A/S/D**: forward, left, backward, right (camera orbit / pan)
+- **Q/E**: move down / up
+- **Mouse**: look around (pitch and yaw; cursor is captured)
+- **Mouse scroll**: increase/decrease movement speed
+- **P**: perspective (3D) view
+- **O**: orthographic (2D) view
 - **Esc**: close window
 
 ## Notes

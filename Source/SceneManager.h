@@ -31,6 +31,10 @@ public:
 	// destructor
 	~SceneManager();
 
+	// Set base path for resources (e.g. exe directory). Trailing slash added if missing.
+	// When set, shaders/textures are loaded from basePath + "shaders/..." or "textures/...".
+	void SetResourceBasePath(const std::string& basePath);
+
 	struct TEXTURE_INFO
 	{
 		std::string tag;
@@ -60,6 +64,8 @@ private:
 	// --------------------------------------------------------------------------
 	GLuint m_groundVAO = 0;
 	GLuint m_groundVBO = 0;
+	// base path for loading resources (exe directory); empty = use current working directory
+	std::string m_resourceBasePath;
 	// total number of loaded textures
 	int m_loadedTextures;
 	// loaded textures info

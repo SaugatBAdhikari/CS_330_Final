@@ -39,6 +39,19 @@ SceneManager::SceneManager(ShaderManager *pShaderManager)
 }
 
 /***********************************************************
+ *  SetResourceBasePath()
+ *
+ *  Sets the base directory for loading shaders and textures
+ *  (e.g. the exe directory so the app works when run from anywhere).
+ ***********************************************************/
+void SceneManager::SetResourceBasePath(const std::string& basePath)
+{
+	m_resourceBasePath = basePath;
+	if (!m_resourceBasePath.empty() && m_resourceBasePath.back() != '/' && m_resourceBasePath.back() != '\\')
+		m_resourceBasePath += '/';
+}
+
+/***********************************************************
  *  ~SceneManager()
  *
  *  The destructor for the class
@@ -472,19 +485,19 @@ void SceneManager::PrepareScene()
 	m_basicMeshes->LoadCylinderMesh();
 	m_basicMeshes->LoadConeMesh();
 	m_basicMeshes->LoadTorusMesh();
+	m_basicMeshes->LoadPyramid4Mesh(); // pyramid (e.g. plant pot)
 
 	// Create the custom ground plane geometry (VAO/VBO).
 	CreateGroundPlaneMesh();
 
 	// --------------------------------------------------------------------------
-	// Load textures (now included in this project under `textures/`).
-	// The Post-Build step copies `$(ProjectDir)textures` into the output folder
-	// so the relative path `textures/...` works whether you run from the project
-	// directory or from the Debug/Release output directory.
+	// Load textures from exe-relative path (m_resourceBasePath) or CWD.
+	// Keeps shaders/textures next to the exe when you extract or run from anywhere.
 	// --------------------------------------------------------------------------
-	CreateGLTexture("textures/pavers.jpg", "floor");
-	CreateGLTexture("textures/stainless.jpg", "metal");
-	CreateGLTexture("textures/rusticwood.jpg", "wood");
+	std::string texBase = m_resourceBasePath + "textures/";
+	TryLoadTexture((texBase + "pavers.jpg").c_str(), "textures/pavers.jpg", "floor");
+	TryLoadTexture((texBase + "stainless.jpg").c_str(), "textures/stainless.jpg", "metal");
+	TryLoadTexture((texBase + "rusticwood.jpg").c_str(), "textures/rusticwood.jpg", "wood");
 
 	// --------------------------------------------------------------------------
 	// Materials for Phong lighting (Milestone: lighting).
@@ -514,6 +527,30 @@ void SceneManager::PrepareScene()
 	mat.diffuseColor = glm::vec3(0.5f, 0.35f, 0.2f);
 	mat.specularColor = glm::vec3(0.15f, 0.1f, 0.05f);
 	mat.shininess = 16.0f;
+	m_objectMaterials.push_back(mat);
+	// Pyramid: e.g. planter, matte.
+	mat.tag = "pyramid";
+	mat.ambientStrength = 0.3f;
+	mat.ambientColor = glm::vec3(0.35f, 0.25f, 0.2f);
+	mat.diffuseColor = glm::vec3(0.5f, 0.35f, 0.25f);
+	mat.specularColor = glm::vec3(0.2f, 0.15f, 0.1f);
+	mat.shininess = 20.0f;
+	m_objectMaterials.push_back(mat);
+	// Glass: transparent water glass (high specular, light blue tint).
+	mat.tag = "glass";
+	mat.ambientStrength = 0.15f;
+	mat.ambientColor = glm::vec3(0.6f, 0.8f, 1.0f);
+	mat.diffuseColor = glm::vec3(0.7f, 0.88f, 1.0f);
+	mat.specularColor = glm::vec3(0.9f, 0.95f, 1.0f);
+	mat.shininess = 96.0f;
+	m_objectMaterials.push_back(mat);
+	// Green cube box (right of pyramid).
+	mat.tag = "greenbox";
+	mat.ambientStrength = 0.3f;
+	mat.ambientColor = glm::vec3(0.15f, 0.5f, 0.15f);
+	mat.diffuseColor = glm::vec3(0.2f, 0.7f, 0.2f);
+	mat.specularColor = glm::vec3(0.3f, 0.6f, 0.3f);
+	mat.shininess = 32.0f;
 	m_objectMaterials.push_back(mat);
 }
 
@@ -587,8 +624,41 @@ void SceneManager::RenderScene()
 	}
 	/****************************************************************/
 
+	// --- Pyramid (e.g. planter, left of scene), 3x scale ---
+	scaleXYZ = glm::vec3(2.1f, 2.7f, 2.1f);  // 3x (0.7, 0.9, 0.7)
+	XrotationDegrees = 0.0f;
+	YrotationDegrees = 0.0f;
+	ZrotationDegrees = 0.0f;
+	positionXYZ = glm::vec3(-2.5f, 1.35f, 2.0f);  // Y = half height so base on ground
+	SetTransformations(scaleXYZ, XrotationDegrees, YrotationDegrees, ZrotationDegrees, positionXYZ);
+	SetShaderMaterial("pyramid");
+	SetShaderColor(0.5f, 0.35f, 0.25f, 1.0f);
+	m_basicMeshes->DrawPyramid4Mesh();
+
+	// --- Green cube box (right of pyramid) ---
+	scaleXYZ = glm::vec3(0.8f, 0.8f, 0.8f);
+	XrotationDegrees = 0.0f;
+	YrotationDegrees = 0.0f;
+	ZrotationDegrees = 0.0f;
+	positionXYZ = glm::vec3(0.5f, 0.4f, 2.0f);  // right of pyramid (pyramid at x=-2.5)
+	SetTransformations(scaleXYZ, XrotationDegrees, YrotationDegrees, ZrotationDegrees, positionXYZ);
+	SetShaderMaterial("greenbox");
+	SetShaderColor(0.2f, 0.7f, 0.2f, 1.0f);
+	m_basicMeshes->DrawBoxMesh();
+
 	// Draw the composite "Watering Can" object with per-part textures (Milestone Four).
 	RenderComplexObject();
+
+	// --- Transparent water glass (left of pyramid), drawn last for correct blending ---
+	scaleXYZ = glm::vec3(0.35f, 1.1f, 0.35f);  // tall cylinder
+	XrotationDegrees = 0.0f;
+	YrotationDegrees = 0.0f;
+	ZrotationDegrees = 0.0f;
+	positionXYZ = glm::vec3(-5.0f, 1.1f, 2.0f);  // left of pyramid (pyramid at x=-2.5), base on ground
+	SetTransformations(scaleXYZ, XrotationDegrees, YrotationDegrees, ZrotationDegrees, positionXYZ);
+	SetShaderMaterial("glass");
+	SetShaderColor(0.65f, 0.85f, 1.0f, 0.38f);  // light blue, transparent
+	m_basicMeshes->DrawCylinderMesh(true, true, true);
 }
 
 // --------------------------------------------------------------------------

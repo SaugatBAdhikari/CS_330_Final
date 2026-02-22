@@ -1,8 +1,13 @@
 #include <iostream>         // error handling and output
 #include <cstdlib>          // EXIT_FAILURE
+#include <string>
 
 #include <GL/glew.h>        // GLEW library
 #include "GLFW/glfw3.h"     // GLFW library
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 // GLM Math Header inclusions
 #include <glm/glm.hpp>
@@ -36,6 +41,9 @@ namespace
 bool InitializeGLFW();
 bool InitializeGLEW();
 
+// Returns the directory containing the executable (with trailing slash), or empty string on failure.
+std::string GetExeDirectory();
+
 
 /***********************************************************
  *  main(int, char*)
@@ -66,12 +74,17 @@ int main(int argc, char* argv[])
 		return(EXIT_FAILURE);
 	}
 
-	// Load shader code from external GLSL files.
-	// Prefer paths under project folder (works when exe runs from Debug/Release after post-build copy).
-	// Fallback to Utilities when VS working directory is set to solution/project.
-	GLuint programId = g_ShaderManager->LoadShaders(
-		"shaders/vertexShader.glsl",
-		"shaders/fragmentShader.glsl");
+	// Load shader code: look next to the exe first (so extracted/standalone exe works), then CWD, then Utilities.
+	std::string exeDir = GetExeDirectory();
+	std::string vertexPath = exeDir + "shaders/vertexShader.glsl";
+	std::string fragmentPath = exeDir + "shaders/fragmentShader.glsl";
+	GLuint programId = g_ShaderManager->LoadShaders(vertexPath.c_str(), fragmentPath.c_str());
+	if (programId == 0)
+	{
+		programId = g_ShaderManager->LoadShaders(
+			"shaders/vertexShader.glsl",
+			"shaders/fragmentShader.glsl");
+	}
 	if (programId == 0)
 	{
 		programId = g_ShaderManager->LoadShaders(
@@ -80,8 +93,9 @@ int main(int argc, char* argv[])
 	}
 	g_ShaderManager->use();
 
-	// try to create a new scene manager object and prepare the 3D scene
+	// Create scene manager and set resource base to exe directory so textures load next to exe.
 	g_SceneManager = new SceneManager(g_ShaderManager);
+	g_SceneManager->SetResourceBasePath(exeDir);
 	g_SceneManager->PrepareScene();
 
 	// loop will keep running until the application is closed 
@@ -182,4 +196,27 @@ bool InitializeGLEW()
 	std::cout << "INFO: OpenGL Version: " << glGetString(GL_VERSION) << "\n" << std::endl;
 
 	return(true);
+}
+
+/***********************************************************
+ *	GetExeDirectory()
+ *
+ *  Returns the directory containing the executable, with a
+ *  trailing slash, so resources (shaders, textures) can be
+ *  loaded when the exe is run from any folder or extracted.
+ ***********************************************************/
+std::string GetExeDirectory()
+{
+#ifdef _WIN32
+	char path[MAX_PATH];
+	HMODULE hModule = GetModuleHandleA(NULL);
+	if (hModule == NULL) return std::string();
+	DWORD len = GetModuleFileNameA(hModule, path, MAX_PATH);
+	if (len == 0 || len >= MAX_PATH) return std::string();
+	std::string exePath(path);
+	std::size_t lastSlash = exePath.find_last_of("\\/");
+	if (lastSlash != std::string::npos)
+		return exePath.substr(0, lastSlash + 1);
+#endif
+	return std::string();
 }
